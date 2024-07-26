@@ -3,6 +3,7 @@ use near_sdk::{
     env, near, serde_json, BorshStorageKey, CryptoHash, Gas, GasWeight, NearToken, PromiseError,
 };
 
+type Prompt = String;
 const YIELD_REGISTER: u64 = 0;
 
 #[near]
@@ -12,10 +13,8 @@ enum Keys {
     Answers,
 }
 
-type Prompt = String;
-
 #[near(serializers = [json, borsh])]
-
+#[derive(Clone)]
 pub enum Response {
     Wait,
     Answer(String),
@@ -102,17 +101,27 @@ impl Contract {
         &mut self,
         prompt: Prompt,
         #[callback_result] response: Result<String, PromiseError>,
-    ) -> String {
+    ) -> Response {
         match response {
             Ok(answer) => {
                 self.answers.remove(&prompt);
-                answer
+                Response::Answer(answer)
             }
             Err(_) => {
                 self.answers.insert(prompt, Response::Wait);
-                "Error: Contract timed out".to_owned()
+                Response::Wait
             }
         }
+    }
+
+    #[private]
+    pub fn return_existing_response(
+        &mut self,
+        prompt: Prompt,
+    ) -> Response {
+        let answer = self.answers.get(&prompt).expect("Answer not found").clone();
+        self.answers.remove(&prompt);
+        answer
     }
 
     pub fn list_requests(&self) -> Vec<Request> {
