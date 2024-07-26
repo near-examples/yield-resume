@@ -110,7 +110,7 @@ impl Contract {
             }
             Err(_) => {
                 self.answers.insert(prompt, Response::Wait);
-                "Error".to_owned()
+                "Error: Contract timed out".to_owned()
             }
         }
     }
