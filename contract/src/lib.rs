@@ -80,13 +80,10 @@ impl Contract {
         request_id: u32,
         #[callback_result] response: Result<String, PromiseError>,
     ) -> Response {
-        // remove the request
         self.requests.remove(&request_id);
 
         match response {
-            // return response to the caller
             Ok(answer) => Response::Ok(answer),
-            // do not panic! panic will rollback the `remove`
             Err(_) => Response::TimeOutError,
         }
     }
