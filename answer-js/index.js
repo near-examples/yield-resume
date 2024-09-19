@@ -30,12 +30,12 @@ async function main() {
   console.log("I am going to answer");
 
   const answer = generateAnswer(last.prompt);
-
+  console.log(last);
   await wallet.callMethod(
     {
       contractId: process.env.CONTRACT_ID,
       method: 'respond',
-      args: { request_id: last.id, response: answer },
+      args: { yield_id: last.yield_id, response: answer },
     }
   )
 

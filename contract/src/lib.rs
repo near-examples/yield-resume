@@ -1,5 +1,6 @@
 use near_sdk::store::IterableMap;
 use near_sdk::{env, near, serde_json, BorshStorageKey, CryptoHash, Gas, GasWeight, PromiseError};
+use serde_json::json;
 
 const YIELD_REGISTER: u64 = 0;
 
@@ -9,20 +10,29 @@ enum Keys {
     Map,
 }
 
-#[near(serializers = [json])]
+#[near(serializers = [json, borsh])]
+#[derive(Clone)]
 pub struct Request {
-    id: CryptoHash,
+    yield_id: CryptoHash,
     prompt: String,
+}
+
+#[near(serializers = [json])]
+pub enum Response {
+    Ok(String),
+    TimeOutError,
 }
 
 #[near(contract_state)]
 pub struct Contract {
-    requests: IterableMap<CryptoHash, String>,
+    request_id: u32,
+    requests: IterableMap<u32, Request>,
 }
 
 impl Default for Contract {
     fn default() -> Self {
         Self {
+            request_id: 0,
             requests: IterableMap::new(Keys::Map),
         }
     }
@@ -34,50 +44,55 @@ impl Contract {
         // this will create a unique ID in the YIELD_REGISTER
         let yield_promise = env::promise_yield_create(
             "return_external_response",
-            &Vec::new(),
+            &json!({ "request_id": self.request_id })
+                .to_string()
+                .into_bytes(),
             Gas::from_tgas(5),
             GasWeight::default(),
             YIELD_REGISTER,
         );
 
         // load the ID created by the promise_yield_create
-        let id: CryptoHash = env::read_register(YIELD_REGISTER)
+        let yield_id: CryptoHash = env::read_register(YIELD_REGISTER)
             .expect("read_register failed")
             .try_into()
             .expect("conversion to CryptoHash failed");
 
-        // store the request and wait for the response
-        self.requests.insert(id, prompt);
+        // store the request, so we can delete it later
+        let request = Request { yield_id, prompt };
+        self.requests.insert(self.request_id, request);
+        self.request_id += 1;
+
+        // return the yield promise
         env::promise_return(yield_promise);
     }
 
-    pub fn respond(&mut self, request_id: CryptoHash, response: String) {
+    pub fn respond(&mut self, yield_id: CryptoHash, response: String) {
         // resume computation with the response
-        env::promise_yield_resume(&request_id, &serde_json::to_vec(&response).unwrap());
+        env::promise_yield_resume(&yield_id, &serde_json::to_vec(&response).unwrap());
     }
 
     #[private]
     pub fn return_external_response(
-        &self,
+        &mut self,
+        request_id: u32,
         #[callback_result] response: Result<String, PromiseError>,
-    ) -> String {
+    ) -> Response {
+        // remove the request
+        self.requests.remove(&request_id);
+
         match response {
-            Ok(answer) => answer,
-            Err(_) => panic!("Timeout while waiting for external response"),
+            // return response to the caller
+            Ok(answer) => Response::Ok(answer),
+            // do not panic! panic will rollback the `remove`
+            Err(_) => Response::TimeOutError,
         }
     }
 
     pub fn list_requests(&self) -> Vec<Request> {
         self.requests
-            .iter()
-            .map(|(id, prompt)| Request {
-                id: id.clone(),
-                prompt: prompt.clone(),
-            })
+            .values()
+            .map(|request| request.clone())
             .collect()
-    }
-
-    pub fn remove_request(&mut self, id: CryptoHash) {
-        self.requests.remove(&id);
     }
 }

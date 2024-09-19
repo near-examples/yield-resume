@@ -1,0 +1,5 @@
+*/target
+*lock
+*/node_modules
+*lock*
+.env
