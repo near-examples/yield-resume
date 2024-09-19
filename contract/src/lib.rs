@@ -19,7 +19,7 @@ pub struct Request {
 
 #[near(serializers = [json])]
 pub enum Response {
-    Ok(String),
+    Answer(String),
     TimeOutError,
 }
 
@@ -83,7 +83,7 @@ impl Contract {
         self.requests.remove(&request_id);
 
         match response {
-            Ok(answer) => Response::Ok(answer),
+            Ok(answer) => Response::Answer(answer),
             Err(_) => Response::TimeOutError,
         }
     }
