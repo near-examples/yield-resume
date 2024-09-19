@@ -41,6 +41,9 @@ impl Default for Contract {
 #[near]
 impl Contract {
     pub fn request(&mut self, prompt: String) {
+        // internal variable to keep track of the requests
+        self.request_id += 1;
+
         // this will create a unique ID in the YIELD_REGISTER
         let yield_promise = env::promise_yield_create(
             "return_external_response",
@@ -61,7 +64,6 @@ impl Contract {
         // store the request, so we can delete it later
         let request = Request { yield_id, prompt };
         self.requests.insert(self.request_id, request);
-        self.request_id += 1;
 
         // return the yield promise
         env::promise_return(yield_promise);
