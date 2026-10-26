@@ -1,8 +1,6 @@
 use near_sdk::store::IterableMap;
-use near_sdk::{env, near, serde_json, BorshStorageKey, CryptoHash, Gas, GasWeight, PromiseError};
+use near_sdk::{near, serde_json, BorshStorageKey, Gas, GasWeight, Promise, PromiseError, YieldId};
 use serde_json::json;
-
-const YIELD_REGISTER: u64 = 0;
 
 #[near]
 #[derive(BorshStorageKey)]
@@ -13,7 +11,7 @@ enum Keys {
 #[near(serializers = [json, borsh])]
 #[derive(Clone)]
 pub struct Request {
-    yield_id: CryptoHash,
+    yield_id: YieldId,
     prompt: String,
 }
 
@@ -40,38 +38,33 @@ impl Default for Contract {
 
 #[near]
 impl Contract {
-    pub fn request(&mut self, prompt: String) {
+    pub fn request(&mut self, prompt: String) -> Promise {
         // internal variable to keep track of the requests
         self.request_id += 1;
 
-        // this will create a unique ID in the YIELD_REGISTER
-        let yield_promise = env::promise_yield_create(
+        // create the yielded promise and its resumption ID
+        let (yield_promise, yield_id) = Promise::new_yield(
             "return_external_response",
             &json!({ "request_id": self.request_id })
                 .to_string()
                 .into_bytes(),
             Gas::from_tgas(5),
             GasWeight::default(),
-            YIELD_REGISTER,
         );
-
-        // load the ID created by the promise_yield_create
-        let yield_id: CryptoHash = env::read_register(YIELD_REGISTER)
-            .expect("read_register failed")
-            .try_into()
-            .expect("conversion to CryptoHash failed");
 
         // store the request, so we can delete it later
         let request = Request { yield_id, prompt };
         self.requests.insert(self.request_id, request);
 
         // return the yield promise
-        env::promise_return(yield_promise);
+        yield_promise
     }
 
-    pub fn respond(&mut self, yield_id: CryptoHash, response: String) {
+    pub fn respond(&mut self, yield_id: YieldId, response: String) {
         // resume computation with the response
-        env::promise_yield_resume(&yield_id, &serde_json::to_vec(&response).unwrap());
+        yield_id
+            .resume(serde_json::to_vec(&response).unwrap())
+            .expect("yielded promise not found or already resolved");
     }
 
     #[private]
