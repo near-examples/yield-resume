@@ -3,3 +3,5 @@
 */node_modules
 *lock*
 .env
+# Reproducible answer-service dependency installation.
+!answer-js/package-lock.json
