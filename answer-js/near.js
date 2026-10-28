@@ -1,65 +1,32 @@
-const { providers, connect, keyStores, KeyPair } = require('near-api-js');
+const { Account, JsonRpcProvider, KeyPairSigner } = require('near-api-js');
 
-const MAX_GAS = '300000000000000';
-const NO_DEPOSIT = '0';
+const RPC_URLS = {
+  mainnet: 'https://free.rpc.fastnear.com',
+  testnet: 'https://test.rpc.fastnear.com',
+};
 
 class Wallet {
-  /**
-   * @constructor
-   * @param {Object} options - the options for the wallet
-   * @param {string} options.networkId - the network id to connect to
-   * @param {string} options.accountId - the account to use
-   * @param {string} options.privateKey - the private key to use
-   */
-  constructor({ networkId = 'testnet', accountId, privateKey }) {
-    this.accountId = accountId;
-    this.networkId = networkId;
-
-    const keyPair = KeyPair.fromString(privateKey);
-    const keyStore = new keyStores.InMemoryKeyStore();
-    keyStore.setKey(networkId, accountId, keyPair)
-
-    this.near = connect({ networkId, nodeUrl: 'https://rpc.testnet.near.org', keyStore });
+  constructor({ networkId = 'testnet', accountId, privateKey, rpcUrl = process.env.RPC_URL }) {
+    const url = rpcUrl || RPC_URLS[networkId];
+    if (!url) throw new Error(`Set RPC_URL for network ${networkId}`);
+    if (!accountId || !privateKey) throw new Error('ACCOUNT_ID and PRIVATE_KEY are required');
+    this.provider = new JsonRpcProvider({ url });
+    this.account = new Account(accountId, this.provider, KeyPairSigner.fromSecretKey(privateKey));
   }
 
-  /**
-   * Makes a read-only call to a contract
-   * @param {Object} options - the options for the call
-   * @param {string} options.contractId - the contract's account id
-   * @param {string} options.method - the method to call
-   * @param {Object} options.args - the arguments to pass to the method
-   * @returns {Promise<JSON.value>} - the result of the method call
-   */
-  viewMethod = async ({ contractId, method, args = {} }) => {
-    const account = await (await this.near).account(this.accountId);
-    return await account.viewFunction({ contractId, methodName: method, args });
-  };
+  // Reading requests does not require an account lookup or a signing key on the RPC.
+  viewMethod = ({ contractId, method, args = {} }) =>
+    this.provider.callFunction({ contractId, method, args });
 
-  /**
-   * Makes a call to a contract
-   * @param {Object} options - the options for the call
-   * @param {string} options.contractId - the contract's account id
-   * @param {string} options.method - the method to call
-   * @param {Object} options.args - the arguments to pass to the method
-   * @param {string} options.gas - the amount of gas to use
-   * @param {string} options.deposit - the amount of yoctoNEAR to deposit
-   * @returns {Promise<Transaction>} - the resulting transaction
-   */
-  callMethod = async ({ contractId, method, args = {}, gas = MAX_GAS, deposit = NO_DEPOSIT }) => {
-    // Sign a transaction with the "FunctionCall" action
-    const account = await (await this.near).account(this.accountId);
-
-    const outcome = await account.functionCall({
+  callMethod = async ({ contractId, method, args = {}, gas = '300000000000000', deposit = '0' }) => {
+    return this.account.callFunction({
       contractId,
       methodName: method,
       args,
-      gas,
-      attachedDeposit: deposit,
+      gas: BigInt(gas),
+      deposit: BigInt(deposit),
     });
-
-    return providers.getTransactionLastResult(outcome);
   };
 }
 
-// export the wallet
 module.exports = { Wallet };

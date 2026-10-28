@@ -37,10 +37,20 @@ near call requests.near-examples.testnet request "{\"prompt\": \"A simple questi
 
 In the current implementation, anyone can give an answer to the contract. The contract will then resume execution and return the answer to the caller.
 
+Use Node.js 22.22.2 or newer. Create `answer-js/.env` with `ACCOUNT_ID`, `PRIVATE_KEY` and `CONTRACT_ID`. `NETWORK_ID` defaults to `testnet`; set `RPC_URL` to use a custom RPC endpoint.
+
 We have included a simple JavaScript application that pings the contract to see if there are any pending questions, and gives an answer. To run it, follow the steps below:
 
 ```bash
 cd answer-js
 npm i
 npm start
+```
+
+Run the answer-service checks without sending transactions:
+
+```bash
+cd answer-js
+npm run check
+npm test
 ```

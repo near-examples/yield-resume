@@ -3,13 +3,15 @@
   "version": "1.0.0",
   "private": true,
   "engines": {
-    "node": ">=18"
+    "node": ">=22.22.2"
   },
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "test": "node --test",
+    "check": "node --check index.js && node --check near.js"
   },
   "dependencies": {
     "dotenv": "^16.4.5",
-    "near-api-js": "^4.0.3"
+    "near-api-js": "^7.4.0"
   }
 }
