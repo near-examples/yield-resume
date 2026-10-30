@@ -54,3 +54,14 @@ cd answer-js
 npm run check
 npm test
 ```
+
+## Contract tests
+
+The Rust tests use `near-sandbox` and `near-api` with a local RPC endpoint. Install the pinned build tool with `cargo install cargo-near --version 0.21.1 --locked --no-default-features`, then run:
+
+```bash
+cd contract
+cargo test --locked
+```
+
+The tests cover an external response and protocol timeout, including request cleanup and rejection of late responses. No public-network account is required.
