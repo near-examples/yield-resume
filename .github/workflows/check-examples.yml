@@ -24,3 +24,16 @@ jobs:
       - run: npm ci
       - run: npm run check
       - run: npm test
+
+  rust:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: contract
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.96
+        with:
+          targets: wasm32-unknown-unknown
+      - run: cargo install cargo-near --version 0.21.1 --locked --no-default-features
+      - run: cargo test --locked
